@@ -110,46 +110,50 @@ class HttpRequestHandler {
         }
     }
     
-    class func getTasksForList(listId: Int){
-        let parameters = ["list_id": listId]
-        
-        let httpCallObservable:Observable<Any> = Observable<Any>.create { sub in
-            Just.get(tasksApiUrl, params: parameters, headers: headers, asyncCompletionHandler: { (response: HTTPResult) in
-                if response.statusCode == 200 {
-                    guard let content = response.content  else {return }
-                    DispatchQueue.main.async {
-                        do {
-                            let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
-                            if let todosFetched = Mapper<Todo>().mapArray(JSONObject: jsonObject){
-                                try! Global.realm!.write {
-                                    for todo in todosFetched {
-                                        Global.realm!.add(todo, update: true)
-                                        if !Global.realmTodos.contains(todo){
-                                            Global.realmTodos.append(todo)
-                                        }
+    class func getTasksForListApiCall(_ subscribe: (AnyObserver<Any>), parameters: [String: Int]) -> HTTPResult {
+        return Just.get(tasksApiUrl, params: parameters, headers: headers, asyncCompletionHandler: { (response: HTTPResult) in
+            if response.statusCode == 200 {
+                guard let content = response.content  else {return }
+                DispatchQueue.main.async {
+                    do {
+                        let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
+                        if let todosFetched = Mapper<Todo>().mapArray(JSONObject: jsonObject){
+                            try! Global.realm!.write {
+                                for todo in todosFetched {
+                                    Global.realm!.add(todo, update: true)
+                                    if !Global.realmTodos.contains(todo){
+                                        Global.realmTodos.append(todo)
                                     }
                                 }
                             }
-                            
-                            sub.onNext(content)
-                            sub.onCompleted()
-                        } catch let error {
-                            print(error)
                         }
+                        
+                        subscribe.onNext(content)
+                        subscribe.onCompleted()
+                    } catch let error {
+                        print(error)
                     }
-                } else {
-                    if let error = response.error{
-                        sub.onError(error)
-                    }
-                    
                 }
-            })
+            } else {
+                if let error = response.error{
+                    subscribe.onError(error)
+                }
+                
+            }
+        })
+    }
+    
+    class func getTasksForList(listId: Int){
+        let parameters = ["list_id": listId]
+        
+        let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
+            getTasksForListApiCall(subscribe, parameters: parameters)
             
             return Disposables.create()
         }
         
         _ = httpCallObservable.subscribe(
-            onNext: { data in print(data) },
+            onNext: nil,
             onError: { error in print(error) },
             onCompleted: nil,
             onDisposed: nil
@@ -157,54 +161,92 @@ class HttpRequestHandler {
     }
     
     class func addTask(text: String){
-        if let controller = Global.viewController, let listId = controller.getListId(){
-            let response = Just.post(tasksApiUrl, data: ["list_id": listId, "title": text], headers: headers)
+        let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
+            if let controller = Global.viewController, let listId = controller.getListId(){
+                addTaskApiCall(text: text, listId, subscribe)
+            }
+            
+            return Disposables.create()
+        }
+        
+        _ = httpCallObservable.subscribe(
+            onNext: nil,
+            onError: { error in print(error) },
+            onCompleted: nil,
+            onDisposed: nil
+        )
+    }
+    
+    class func addTaskApiCall(text: String, _ listId: Int, _ subscribe: (AnyObserver<Any>)) -> HTTPResult {
+        return Just.post(tasksApiUrl, data: ["list_id": listId, "title": text], headers: headers) { (response: HTTPResult) in
             if let statusCode = response.statusCode, let content = response.content {
                 if statusCode == 201 {
-                    let  todoJson = String(decoding:  content, as: UTF8.self)
-                    if let todo = Todo(JSONString: todoJson){
-                        try! Global.realm!.write {
-                            Global.realm!.add(todo)
+                    DispatchQueue.main.async {
+                        let  todoJson = String(decoding:  content, as: UTF8.self)
+                        if let todo = Todo(JSONString: todoJson){
+                            try! Global.realm!.write {
+                                Global.realm!.add(todo)
+                            }
                         }
+                        
+                        subscribe.onNext(content)
+                        subscribe.onCompleted()
                     }
-                } else {
-                    print("Error adding todo \(response) \(String(describing: response.error))")
+                } else if let error = response.error{
+                    subscribe.onError(error)
+                }
+            }
+        }
+    }
+    
+    class func deleteTaskApiCall(_ subscribe: (AnyObserver<Any>), todo: Todo) -> HTTPResult {
+        let parameters = ["revision": todo.revision]
+        let urlForSingleTask = "\(tasksApiUrl)/\(String(describing: todo.id))"
+        
+        return Just.delete(urlForSingleTask, params: parameters, headers: deleteHeaders){ (response: HTTPResult) in
+            
+            if let statusCode = response.statusCode {
+                if statusCode == 204 {
+                    DispatchQueue.main.async {
+                        try! Global.realm!.write {
+                            Global.realm!.delete(todo)
+                            Global.realmTodos.remove(at: Global.realmTodos.firstIndex(of: todo)!)
+                        }
+                        
+                        let content = response.content
+                        
+                        subscribe.onNext(content as Any)
+                        subscribe.onCompleted()
+                    }
+                } else if let error = response.error{
+                    subscribe.onError(error)
                 }
             }
         }
     }
     
     class func deleteTask(todo: Todo){
-        let parameters = ["revision": todo.revision]
-        let urlForSingleTask = "\(tasksApiUrl)/\(String(describing: todo.id))"
-        
-        let response = Just.delete(urlForSingleTask, params: parameters, headers: deleteHeaders)
-        if let statusCode = response.statusCode {
-            if statusCode == 204 {
-                try! Global.realm!.write {
-                    Global.realm!.delete(todo)
-                    Global.realmTodos.remove(at: Global.realmTodos.firstIndex(of: todo)!)
-                }
-            }else{
-                print("ERROR: \(String(describing: response.response))")
-            }
+        let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
+            deleteTaskApiCall(subscribe, todo: todo)
+            return Disposables.create()
         }
+        
+        _ = httpCallObservable.subscribe(
+            onNext: nil,
+            onError: { error in print(error) },
+            onCompleted: nil,
+            onDisposed: nil
+        )
     }
     
-    class func sendPatchRequest(_ currentTodo: Todo, text: String) {
-        let currentTodoCopy = Todo(title: (currentTodo.title), id: (currentTodo.id), completed: (currentTodo.completed), listId: (currentTodo.listId), revision: (currentTodo.revision))
-        currentTodoCopy.title = text
-        
-        if !Reachability.isConnectedToNetwork(){
-            Global.syncs.insert(Sync(id: Global.lastId, action: Sync.Action.edit, todo: currentTodoCopy, originalTodo: currentTodo))
-            Global.lastId += 1
-        } else {
+    class func patchTaskApiCall(_ currentTodo: Todo, currentTodoCopy: Todo){
+        do {
             let jsonEncoder = JSONEncoder()
-            do {
-                let updatedTodoAsData = try jsonEncoder.encode(currentTodoCopy)
-                let parameters = ["revision": currentTodo.revision+1, "list_id": currentTodo.listId as Any]
-                let urlForSingleTask = "\(tasksApiUrl)/\(String(describing: currentTodo.id))"
-                let response = Just.patch(urlForSingleTask, params: parameters, headers: headers, requestBody: updatedTodoAsData)
+            let updatedTodoAsData = try jsonEncoder.encode(currentTodoCopy)
+            let parameters = ["revision": currentTodo.revision+1, "list_id": currentTodo.listId as Any]
+            let urlForSingleTask = "\(tasksApiUrl)/\(String(describing: currentTodo.id))"
+            
+            Just.patch(urlForSingleTask, params: parameters, headers: headers, requestBody: updatedTodoAsData, asyncCompletionHandler: { (response: HTTPResult) in
                 
                 if let statusCode = response.statusCode, let todoFromApi = response.content {
                     if statusCode == 200 {
@@ -224,9 +266,55 @@ class HttpRequestHandler {
                         print("ERROR: \(String(describing: response.response))")
                     }
                 }
-            } catch let error {
-                print(error)
+            })
+            
+        } catch {
+            print("EncodingError for todo: ", currentTodoCopy)
+        }
+    }
+    
+    class func sendPatchRequest(_ currentTodo: Todo, text: String) {
+        let currentTodoCopy = Todo(title: (currentTodo.title), id: (currentTodo.id), completed: (currentTodo.completed), listId: (currentTodo.listId), revision: (currentTodo.revision))
+        currentTodoCopy.title = text
+        
+        if !Reachability.isConnectedToNetwork(){
+            Global.syncs.insert(Sync(id: Global.lastId, action: Sync.Action.edit, todo: currentTodoCopy, originalTodo: currentTodo))
+            Global.lastId += 1
+        } else {
+            let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
+                patchTaskApiCall(currentTodo, currentTodoCopy: currentTodoCopy)
+                return Disposables.create()
             }
+            
+            _ = httpCallObservable.subscribe(
+                onNext: nil,
+                onError: { error in print(error) },
+                onCompleted: nil,
+                onDisposed: nil
+            )
+            
+        }
+    }
+    
+    class func makeRequestReactive<T>(_ closure: @escaping @autoclosure () -> T) {
+        let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
+            let result: T = closure()
+            return Disposables.create()
+        }
+        
+        _ = httpCallObservable.subscribe(
+            onNext: nil,
+            onError: { error in print(error) },
+            onCompleted: nil,
+            onDisposed: nil
+        )
+    }
+    
+    class func syncEdit(_ sync: Sync){
+        do {
+            //            try makeRequestReactive(synchronizedEdit(sync))
+        } catch {
+            print("")
         }
     }
     

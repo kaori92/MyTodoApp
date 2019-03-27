@@ -23,9 +23,9 @@ class AddTodoViewController: UIViewController {
             if Reachability.isConnectedToNetwork(){
                 HttpRequestHandler.addTask(text: text)
             } else {
-                    let todo = Todo(title: text, id: Global.lastId, completed: false, listId: Global.listId, revision: 1)
-                    Global.syncs.insert(Sync(id: Global.lastId, action: Sync.Action.add, todo: todo))
-                    Global.lastId += 1
+                let todo = Todo(title: text, id: Global.lastId, completed: false, listId: Global.listId, revision: 1)
+                Global.syncs.insert(Sync(id: Global.lastId, action: Sync.Action.add, todo: todo))
+                Global.lastId += 1
             }
         }
     }
