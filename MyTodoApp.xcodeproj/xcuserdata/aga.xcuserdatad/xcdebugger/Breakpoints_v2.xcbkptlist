@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Bucket
+   type = "1"
+   version = "2.0">
+   <Breakpoints>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "MyTodoApp/HttpRequestHandler.swift"
+            timestampString = "575374921.689266"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "150"
+            endingLineNumber = "150"
+            landmarkName = "getTasksForListRx2(listId:)"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "MyTodoApp/HttpRequestHandler.swift"
+            timestampString = "575374921.689877"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "149"
+            endingLineNumber = "149"
+            landmarkName = "getTasksForListRx2(listId:)"
+            landmarkType = "7">
+            <Locations>
+               <Location
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #1 (RxSwift.AnyObserver&lt;Any&gt;) -&gt; RxSwift.Disposable in static MyTodoApp.HttpRequestHandler.getTasksForListRx2(listId: Swift.Int) -&gt; ()"
+                  moduleName = "MyTodoApp"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/aga/Downloads/MyTodoApp/MyTodoApp/HttpRequestHandler.swift"
+                  timestampString = "575374921.714554"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "149"
+                  endingLineNumber = "149"
+                  offsetFromSymbolStart = "52">
+               </Location>
+               <Location
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #1 (Just.HTTPResult) -&gt; () in closure #1 (RxSwift.AnyObserver&lt;Any&gt;) -&gt; RxSwift.Disposable in static MyTodoApp.HttpRequestHandler.getTasksForListRx2(listId: Swift.Int) -&gt; ()"
+                  moduleName = "MyTodoApp"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/aga/Downloads/MyTodoApp/MyTodoApp/HttpRequestHandler.swift"
+                  timestampString = "575374921.716681"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "150"
+                  endingLineNumber = "150"
+                  offsetFromSymbolStart = "59">
+               </Location>
+            </Locations>
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "MyTodoApp/HttpRequestHandler.swift"
+            timestampString = "575374921.690136"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "154"
+            endingLineNumber = "154"
+            landmarkName = "getTasksForListRx2(listId:)"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+   </Breakpoints>
+</Bucket>
