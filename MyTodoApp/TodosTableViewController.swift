@@ -146,9 +146,7 @@ class TodosTableViewController: UITableViewController {
     
     func getTasksForList(listId: Int){
         if isOnline {
-            HttpRequestHandler.getTasksForListRx2(listId: listId)
-//            HttpRequestHandler.getTasksForListRx3(listId: listId)
-            //            HttpRequestHandler.getTasksForListOnline(listId: listId)
+            HttpRequestHandler.getTasksForList(listId: listId)
             tableView.reloadData()
         }
     }
@@ -194,3 +192,4 @@ class TodosTableViewController: UITableViewController {
         }
     }
 }
+

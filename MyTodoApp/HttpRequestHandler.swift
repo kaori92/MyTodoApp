@@ -110,64 +110,33 @@ class HttpRequestHandler {
         }
     }
     
-    enum FailureReason: Int, Error {
-        case unAuthorized = 401
-        case notFound = 404
-    }
-    
-    class func  getTasksForListRx3(listId: Int){
-        let parameters = ["list_id": listId]
-        let httpCallObservable:Observable<Any> = Observable<Any>.create { sub in
-            Alamofire.request(tasksApiUrl, method: HTTPMethod.get, parameters: parameters, encoding: JSONEncoding.default, headers: headers)
-                .validate(statusCode: 200..<300)
-                .validate(contentType: ["application/json"])
-                .responseJSON { response in
-                    switch response.result {
-                    case .success:
-                        sub.onNext(response.result.value!)
-                        sub.onCompleted()
-                    case .failure(let error):
-                        sub.onError(error)
-                    }
-            }
-            
-            return Disposables.create()
-        }
-        
-        _ = httpCallObservable.subscribe(
-            onNext: { data in print(data) },
-            onError: { error in print(error) },
-            onCompleted: nil,
-            onDisposed: nil
-        )
-    }
-    
-    class func getTasksForListRx2(listId: Int){
+    class func getTasksForList(listId: Int){
         let parameters = ["list_id": listId]
         
         let httpCallObservable:Observable<Any> = Observable<Any>.create { sub in
             Just.get(tasksApiUrl, params: parameters, headers: headers, asyncCompletionHandler: { (response: HTTPResult) in
                 if response.statusCode == 200 {
                     guard let content = response.content  else {return }
-                    do {
-                        let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
-                        if let todosFetched = Mapper<Todo>().mapArray(JSONObject: jsonObject){
-                            try! Global.realm!.write {
-                                for todo in todosFetched {
-                                    Global.realm!.add(todo, update: true)
-                                    if !Global.realmTodos.contains(todo){
-                                        Global.realmTodos.append(todo)
+                    DispatchQueue.main.async {
+                        do {
+                            let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
+                            if let todosFetched = Mapper<Todo>().mapArray(JSONObject: jsonObject){
+                                try! Global.realm!.write {
+                                    for todo in todosFetched {
+                                        Global.realm!.add(todo, update: true)
+                                        if !Global.realmTodos.contains(todo){
+                                            Global.realmTodos.append(todo)
+                                        }
                                     }
                                 }
                             }
+                            
+                            sub.onNext(content)
+                            sub.onCompleted()
+                        } catch let error {
+                            print(error)
                         }
-                        
-                        sub.onNext(content)
-                        sub.onCompleted()
-                    } catch let error {
-                        print(error)
                     }
-                    
                 } else {
                     if let error = response.error{
                         sub.onError(error)
@@ -186,51 +155,6 @@ class HttpRequestHandler {
             onDisposed: nil
         )
     }
-    
-    //    class func getTasksForListRx(listId: Int) -> Observable<[Todo]> {
-    //        let parameters = ["list_id": listId]
-    //        return Observable.create { observer -> Disposable in
-    //            let response = Just.get(tasksApiUrl, params: parameters, headers: headers)
-    //            switch response.statusCode {
-    //            case 401:
-    //                print("error")
-    //            case 404:
-    //                print("not found")
-    //            case 200:
-    //                guard let content = response.content else {
-    // if no error provided by alamofire return .notFound error instead.
-    // .notFound should never happen here?
-    //                    observer.onError(response.error ?? GetFriendsFailureReason.notFound)
-    //                    return
-    //                    print("error")
-    //                }
-    //                do {
-    //                    let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
-    //
-    //                    if let todosFetched = Mapper<Todo>().mapArray(JSONObject: jsonObject){
-    //                        try! Global.realm!.write {
-    //                            for todo in todosFetched {
-    //                                Global.realm!.add(todo, update: true)
-    //                                if !Global.realmTodos.contains(todo){
-    //                                    Global.realmTodos.append(todo)
-    //                                }
-    //                            }
-    //                        }
-    //                    }
-    //
-    ////                    let friends = try JSONDecoder().decode([Friend].self, from: data)
-    ////                    observer.onNext(friends)
-    //                } catch {
-    //                    observer.onError(error)
-    //                }
-    //            default:
-    //                print("")
-    //            }
-    //
-    //
-    //            return Disposables.create()
-    //        }
-    //    }
     
     class func addTask(text: String){
         if let controller = Global.viewController, let listId = controller.getListId(){
@@ -349,3 +273,4 @@ class HttpRequestHandler {
         }
     }
 }
+
