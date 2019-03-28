@@ -32,7 +32,7 @@ final class Todo: Object, Mappable, Codable {
     }
     
     static func == (lhs: Todo, rhs: Todo) -> Bool {
-        return lhs.id == rhs.id && lhs.title == rhs.title && lhs.completed == rhs.completed && lhs.listId == rhs.listId && lhs.revision == rhs.revision
+        return lhs.id == rhs.id && lhs.title == rhs.title && lhs.listId == rhs.listId && lhs.revision == rhs.revision
     }
     
     required init?(map: Map) {

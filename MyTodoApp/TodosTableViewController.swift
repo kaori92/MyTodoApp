@@ -36,7 +36,7 @@ class TodosTableViewController: UITableViewController {
         super.viewDidLoad()
         tableView.reloadData()
         
-        timer = Timer.scheduledTimer(timeInterval: 3, target: self, selector: #selector(self.synchronizeTodos), userInfo: nil, repeats: true)
+        timer = Timer.scheduledTimer(timeInterval: 5, target: self, selector: #selector(self.synchronizeTodos), userInfo: nil, repeats: true)
         if let listId = getListId(){
             try! Global.realm!.write {
                 let list = List(listId: listId)
@@ -99,11 +99,13 @@ class TodosTableViewController: UITableViewController {
             }
         }
         
-        if(visibleViewController is TodosTableViewController || visibleViewController is UIAlertController && isOnline() && !Global.syncs.isEmpty){
+        if( (visibleViewController is TodosTableViewController || visibleViewController is UIAlertController) && isOnline() && !Global.syncs.isEmpty){
             for sync in Global.syncs {
                 synchronize(sync: sync)
                 Global.syncs.remove(sync)
+                
             }
+            
         }
         tableView.reloadData()
     }
@@ -117,13 +119,14 @@ class TodosTableViewController: UITableViewController {
         switch(sync.action){
         case Sync.Action.add:
             do {
+                print("sync add")
                 try HttpRequestHandler.synchronizedAdd(sync)
             } catch let error {
                 print(error)
             }
             
         case Sync.Action.edit:
-             HttpRequestHandler.syncEdit(sync)
+            HttpRequestHandler.syncEdit(sync)
             
         case Sync.Action.delete:
             do {
@@ -137,7 +140,7 @@ class TodosTableViewController: UITableViewController {
             }
         }
         
-         if let listId = getListId(){
+        if let listId = getListId(){
             getTasksForList(listId: listId)
         }
     }

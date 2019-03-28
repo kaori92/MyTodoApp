@@ -26,11 +26,14 @@ class TodoTableViewCell: UITableViewCell {
         }
         
         if let cellIndex = cellIndex {
-            try! Global.realm!.write {
-                Global.realmTodos[cellIndex].completed = checked
+            DispatchQueue.main.async {
+                try! Global.realm!.write {
+                    Global.realmTodos[cellIndex].completed = self.checked
+                }
+                self.todo = Global.realmTodos[cellIndex]
+                
+                HttpRequestHandler.sendPatchRequest(self.todo!, text: self.todo!.title)
             }
-            todo = Global.realmTodos[cellIndex]
-            HttpRequestHandler.sendPatchRequest(todo!, text: todo!.title)
             if let todosTableViewController = Global.viewController {
                 todosTableViewController.tableView.reloadData()
             }

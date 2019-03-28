@@ -49,9 +49,11 @@ class HttpRequestHandler {
         let response = Just.delete(urlForSingleTask, params: parameters, headers: deleteHeaders)
         if let statusCode = response.statusCode {
             if statusCode == 204 {
-                try! Global.realm!.write {
-                    Global.realm!.delete(sync.todo!)
-                    Global.realmTodos.remove(at: Global.realmTodos.firstIndex(of: sync.todo!)!)
+                DispatchQueue.main.async {
+                    try! Global.realm!.write {
+                        Global.realm!.delete(sync.todo!)
+                        Global.realmTodos.remove(at: Global.realmTodos.firstIndex(of: sync.todo!)!)
+                    }
                 }
             } else {
                 print("ERROR: \(String(describing: response.response))")
@@ -87,79 +89,39 @@ class HttpRequestHandler {
         
     }
     
-//    class func getListIdApiCall2() -> Int?{
-//        let getHeaders: HTTPHeaders = [
-//            "X-Access-Token": accessToken,
-//            "X-Client-ID": clientId
-//        ]
-//
-//        var listId: Int?
-//
-//        Just.get(listsApiUrl, headers: getHeaders)  { (response: HTTPResult) in
-//            guard let content = response.content  else {return}
-//            if response.statusCode == 200 {
-//                do {
-//                    let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
-//
-//                    if let lists = Mapper<List>().mapArray(JSONObject: jsonObject){
-//                        listId = lists[0].listId
-//                        let list = List(listId: listId!)
-//
-//                            try! Global.realm!.write {
-//                                let result = Global.realm!.objects(List.self)
-//                                Global.realm!.delete(result)
-//                            }
-//
-//                            try! Global.realm!.write {
-//                                Global.realm!.add(list)
-//                            }
-//                    }
-//
-//
-//                } catch let error {
-//                    print("Error getting id of list: \(error)")
-//                }
-//            } else {
-//                if let error = response.error{
-//                    print(error)
-//                }
-//            }
-//        }
-//        })
-//
-//        return listId
-//    }
-
     class func getListIdIfNoListSaved() -> Int? {
-    let getHeaders: HTTPHeaders = [
-        "X-Access-Token": accessToken,
-        "X-Client-ID": clientId
-    ]
-    let response = Just.get(listsApiUrl, headers: getHeaders)
-    guard let content = response.content  else {return nil }
-    do {
-        let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
-        
-        if let lists = Mapper<List>().mapArray(JSONObject: jsonObject){
-            let listId = lists[0].listId
-            let list = List(listId: listId)
+        let getHeaders: HTTPHeaders = [
+            "X-Access-Token": accessToken,
+            "X-Client-ID": clientId
+        ]
+        let response = Just.get(listsApiUrl, headers: getHeaders)
+        guard let content = response.content  else {return nil }
+        do {
+            let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
             
-            try! Global.realm!.write {
-                let result = Global.realm!.objects(List.self)
-                Global.realm!.delete(result)
+            if let lists = Mapper<List>().mapArray(JSONObject: jsonObject){
+                let listId = lists[0].listId
+                let list = List(listId: listId)
+                
+                DispatchQueue.main.async {
+                    try! Global.realm!.write {
+                        let result = Global.realm!.objects(List.self)
+                        Global.realm!.delete(result)
+                    }
+                    
+                    try! Global.realm!.write {
+                        Global.realm!.add(list)
+                    }
+                }
+                
+                return listId
+                
             }
-            
-            try! Global.realm!.write {
-                Global.realm!.add(list)
-            }
-            return listId
-            
+        } catch let error {
+            print("Error getting id of list: \(error)")
         }
-    } catch let error {
-        print("Error getting id of list: \(error)")
+        return nil
     }
-    return nil
-}
     
     class func getTasksForListOnline(listId: Int) {
         let parameters = ["list_id": listId]
@@ -169,11 +131,15 @@ class HttpRequestHandler {
         do {
             let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
             if let todosFetched = Mapper<Todo>().mapArray(JSONObject: jsonObject){
-                try! Global.realm!.write {
-                    for todo in todosFetched {
-                        Global.realm!.add(todo, update: true)
-                        if !Global.realmTodos.contains(todo){
-                            Global.realmTodos.append(todo)
+                DispatchQueue.main.async {
+                    try! Global.realm!.write {
+                        for todo in todosFetched {
+                            Global.realm!.add(todo, update: true)
+                            if !Global.realmTodos.contains(where: { (localTodo) -> Bool in
+                                localTodo.title == todo.title && localTodo.listId == todo.listId
+                            }){
+                                Global.realmTodos.append(todo)
+                            }
                         }
                     }
                 }
@@ -221,7 +187,7 @@ class HttpRequestHandler {
         let parameters = ["list_id": listId]
         
         let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
-            getTasksForListApiCall(subscribe, parameters: parameters)
+            _ = getTasksForListApiCall(subscribe, parameters: parameters)
             
             return Disposables.create()
         }
@@ -237,7 +203,7 @@ class HttpRequestHandler {
     class func addTask(text: String){
         let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
             if let controller = Global.viewController, let listId = controller.getListId(){
-                addTaskApiCall(text: text, listId, subscribe)
+                _ = addTaskApiCall(text: text, listId, subscribe)
             }
             
             return Disposables.create()
@@ -258,9 +224,9 @@ class HttpRequestHandler {
                     DispatchQueue.main.async {
                         let  todoJson = String(decoding:  content, as: UTF8.self)
                         if let todo = Todo(JSONString: todoJson){
-                                try! Global.realm!.write {
-                                    Global.realm!.add(todo, update: true)
-                                }
+                            try! Global.realm!.write {
+                                Global.realm!.add(todo, update: true)
+                            }
                         }
                         
                         subscribe.onNext(content)
@@ -275,7 +241,8 @@ class HttpRequestHandler {
     
     class func deleteTask(todo: Todo){
         let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
-            deleteTaskApiCall(subscribe, todo: todo)
+            _ = deleteTaskApiCall(subscribe, todo: todo)
+            
             return Disposables.create()
         }
         
@@ -300,7 +267,7 @@ class HttpRequestHandler {
                             Global.realm!.delete(todo)
                             Global.realmTodos.remove(at: Global.realmTodos.firstIndex(of: todo)!)
                         }
-                        
+                        Global.viewController?.tableView.reloadData()
                         let content = response.content
                         
                         subscribe.onNext(content as Any)
@@ -353,10 +320,12 @@ class HttpRequestHandler {
                         if let updatedTodo = Todo(JSONString: todoJson){
                             var current = currentTodo
                             
-                            if let currentTodoIndex = Global.realmTodos.firstIndex(of: current){
-                                try! Global.realm!.write {
-                                    current = updatedTodo
-                                    Global.realmTodos[currentTodoIndex] = updatedTodo
+                            DispatchQueue.main.async {
+                                if let currentTodoIndex = Global.realmTodos.firstIndex(of: current){
+                                    try! Global.realm!.write {
+                                        current = updatedTodo
+                                        Global.realmTodos[currentTodoIndex] = updatedTodo
+                                    }
                                 }
                             }
                         }
@@ -409,10 +378,12 @@ class HttpRequestHandler {
                     let todoJson = String(decoding:  todoFromApi, as: UTF8.self)
                     var originalTodo = sync.originalTodo
                     if let updatedTodo = Todo(JSONString: todoJson) {
-                        if let originalTodoIndex = Global.realmTodos.firstIndex(of: originalTodo!){
-                            try! Global.realm!.write {
-                                originalTodo = updatedTodo
-                                Global.realmTodos[originalTodoIndex] = updatedTodo
+                        DispatchQueue.main.async {
+                            if let originalTodoIndex = Global.realmTodos.firstIndex(of: originalTodo!){
+                                try! Global.realm!.write {
+                                    originalTodo = updatedTodo
+                                    Global.realmTodos[originalTodoIndex] = updatedTodo
+                                }
                             }
                         }
                     }
@@ -432,11 +403,14 @@ class HttpRequestHandler {
         if let statusCode = response.statusCode {
             if statusCode == 201 {
                 let content = response.content
-                try! Global.realm!.write {
-                    Global.realm!.add(sync.todo!, update: true)
-                    
-                    if !Global.realmTodos.contains(sync.todo!){
-                        Global.realmTodos.append(sync.todo!)
+                
+                DispatchQueue.main.async {
+                    try! Global.realm!.write {
+                        Global.realm!.add(sync.todo!, update: true)
+                        
+                        if !Global.realmTodos.contains(sync.todo!){
+                            Global.realmTodos.append(sync.todo!)
+                        }
                     }
                 }
                 subscribe.onNext(content as Any)
