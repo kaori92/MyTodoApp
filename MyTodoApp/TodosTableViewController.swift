@@ -19,7 +19,6 @@ class Global {
 }
 
 class TodosTableViewController: UITableViewController {
-    var isOnline = true
     var timer = Timer()
     
     required init?(coder aDecoder: NSCoder) {
@@ -50,9 +49,11 @@ class TodosTableViewController: UITableViewController {
             Global.syncs.insert(Sync(id: Global.lastId, action: Sync.Action.get, todo: nil))
             Global.lastId += 1
             
-            let alert = UIAlertController(title: "No Internet connection", message: "Check your Internet connection", preferredStyle: UIAlertController.Style.alert)
-            alert.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.cancel, handler: nil))
-            self.present(alert, animated: true, completion: nil)
+            if !isOnline() {
+                let alert = UIAlertController(title: "No Internet connection", message: "Check your Internet connection", preferredStyle: UIAlertController.Style.alert)
+                alert.addAction(UIAlertAction(title: "OK", style: UIAlertAction.Style.cancel, handler: nil))
+                self.present(alert, animated: true, completion: nil)
+            }
         }
     }
     
@@ -60,8 +61,8 @@ class TodosTableViewController: UITableViewController {
         let listsArray = Array(Global.realm!.objects(List.self))
         
         if listsArray.isEmpty || allIdsNegative(listsArray: listsArray){
-            checkConnection()
-            if isOnline {
+            
+            if isOnline() {
                 return HttpRequestHandler.getListIdIfNoListSaved() ?? nil
             }
         } else {
@@ -98,7 +99,7 @@ class TodosTableViewController: UITableViewController {
             }
         }
         
-        if(visibleViewController is TodosTableViewController && Reachability.isConnectedToNetwork() && !Global.syncs.isEmpty){
+        if(visibleViewController is TodosTableViewController || visibleViewController is UIAlertController && isOnline() && !Global.syncs.isEmpty){
             for sync in Global.syncs {
                 synchronize(sync: sync)
                 Global.syncs.remove(sync)
@@ -122,11 +123,8 @@ class TodosTableViewController: UITableViewController {
             }
             
         case Sync.Action.edit:
-            do {
-                try HttpRequestHandler.synchronizedEdit(sync)
-            } catch let error {
-                print(error)
-            }
+             HttpRequestHandler.syncEdit(sync)
+            
         case Sync.Action.delete:
             do {
                 try HttpRequestHandler.synchronizedDelete(sync)
@@ -138,15 +136,19 @@ class TodosTableViewController: UITableViewController {
                 getTasksForList(listId: listId)
             }
         }
+        
+         if let listId = getListId(){
+            getTasksForList(listId: listId)
+        }
     }
     
-    func checkConnection(){
-        isOnline = Reachability.isConnectedToNetwork()
+    func isOnline() -> Bool{
+        return Reachability.isConnectedToNetwork()
     }
     
     func getTasksForList(listId: Int){
-        if isOnline {
-            HttpRequestHandler.getTasksForList(listId: listId)
+        if isOnline() {
+            HttpRequestHandler.getTasksForListOnline(listId: listId)
             tableView.reloadData()
         }
     }

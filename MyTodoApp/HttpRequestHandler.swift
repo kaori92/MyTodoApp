@@ -11,7 +11,6 @@ import UIKit
 import Alamofire
 import ObjectMapper
 import RxSwift
-import RxAtomic
 
 class HttpRequestHandler {
     static let clientId = "07820a0dd3022d18af52"
@@ -29,6 +28,21 @@ class HttpRequestHandler {
     static let listsApiUrl = "http://a.wunderlist.com/api/v1/lists"
     
     class func synchronizedDelete(_ sync: Sync) throws {
+        let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
+            syncDelete(subscribe, sync)
+            
+            return Disposables.create()
+        }
+        
+        _ = httpCallObservable.subscribe(
+            onNext: nil,
+            onError: { error in print(error) },
+            onCompleted: nil,
+            onDisposed: nil
+        )
+    }
+    
+    class func syncDelete( _ subscribe: (AnyObserver<Any>), _ sync: Sync){
         let parameters = ["revision": sync.todo!.revision]
         let urlForSingleTask = "\(tasksApiUrl)/\(String(describing: sync.todo!.id))"
         
@@ -46,46 +60,106 @@ class HttpRequestHandler {
     }
     
     class func synchronizedAdd(_ sync: Sync) throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
-        let parameters = ["list_id": Global.listId]
-        let data = try encoder.encode(sync.todo)
-        
-        if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String : Any]{
-            makePostRequest(parameters, json, sync)
+        let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            let parameters = ["list_id": Global.listId]
+            do {
+                let data = try encoder.encode(sync.todo)
+                
+                if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String : Any]{
+                    makePostRequest(subscribe, parameters, json, sync)
+                }
+            } catch {
+                print(error)
+            }
+            
+            
+            return Disposables.create()
         }
+        
+        _ = httpCallObservable.subscribe(
+            onNext: nil,
+            onError: { error in print(error) },
+            onCompleted: nil,
+            onDisposed: nil
+        )
+        
     }
     
+//    class func getListIdApiCall2() -> Int?{
+//        let getHeaders: HTTPHeaders = [
+//            "X-Access-Token": accessToken,
+//            "X-Client-ID": clientId
+//        ]
+//
+//        var listId: Int?
+//
+//        Just.get(listsApiUrl, headers: getHeaders)  { (response: HTTPResult) in
+//            guard let content = response.content  else {return}
+//            if response.statusCode == 200 {
+//                do {
+//                    let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
+//
+//                    if let lists = Mapper<List>().mapArray(JSONObject: jsonObject){
+//                        listId = lists[0].listId
+//                        let list = List(listId: listId!)
+//
+//                            try! Global.realm!.write {
+//                                let result = Global.realm!.objects(List.self)
+//                                Global.realm!.delete(result)
+//                            }
+//
+//                            try! Global.realm!.write {
+//                                Global.realm!.add(list)
+//                            }
+//                    }
+//
+//
+//                } catch let error {
+//                    print("Error getting id of list: \(error)")
+//                }
+//            } else {
+//                if let error = response.error{
+//                    print(error)
+//                }
+//            }
+//        }
+//        })
+//
+//        return listId
+//    }
+
     class func getListIdIfNoListSaved() -> Int? {
-        let getHeaders: HTTPHeaders = [
-            "X-Access-Token": accessToken,
-            "X-Client-ID": clientId
-        ]
-        let response = Just.get(listsApiUrl, headers: getHeaders)
-        guard let content = response.content  else {return nil }
-        do {
-            let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
+    let getHeaders: HTTPHeaders = [
+        "X-Access-Token": accessToken,
+        "X-Client-ID": clientId
+    ]
+    let response = Just.get(listsApiUrl, headers: getHeaders)
+    guard let content = response.content  else {return nil }
+    do {
+        let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
+        
+        if let lists = Mapper<List>().mapArray(JSONObject: jsonObject){
+            let listId = lists[0].listId
+            let list = List(listId: listId)
             
-            if let lists = Mapper<List>().mapArray(JSONObject: jsonObject){
-                let listId = lists[0].listId
-                let list = List(listId: listId)
-                
-                try! Global.realm!.write {
-                    let result = Global.realm!.objects(List.self)
-                    Global.realm!.delete(result)
-                }
-                
-                try! Global.realm!.write {
-                    Global.realm!.add(list)
-                }
-                return listId
-                
+            try! Global.realm!.write {
+                let result = Global.realm!.objects(List.self)
+                Global.realm!.delete(result)
             }
-        } catch let error {
-            print("Error getting id of list: \(error)")
+            
+            try! Global.realm!.write {
+                Global.realm!.add(list)
+            }
+            return listId
+            
         }
-        return nil
+    } catch let error {
+        print("Error getting id of list: \(error)")
     }
+    return nil
+}
     
     class func getTasksForListOnline(listId: Int) {
         let parameters = ["list_id": listId]
@@ -184,9 +258,9 @@ class HttpRequestHandler {
                     DispatchQueue.main.async {
                         let  todoJson = String(decoding:  content, as: UTF8.self)
                         if let todo = Todo(JSONString: todoJson){
-                            try! Global.realm!.write {
-                                Global.realm!.add(todo)
-                            }
+                                try! Global.realm!.write {
+                                    Global.realm!.add(todo, update: true)
+                                }
                         }
                         
                         subscribe.onNext(content)
@@ -197,6 +271,20 @@ class HttpRequestHandler {
                 }
             }
         }
+    }
+    
+    class func deleteTask(todo: Todo){
+        let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
+            deleteTaskApiCall(subscribe, todo: todo)
+            return Disposables.create()
+        }
+        
+        _ = httpCallObservable.subscribe(
+            onNext: nil,
+            onError: { error in print(error) },
+            onCompleted: nil,
+            onDisposed: nil
+        )
     }
     
     class func deleteTaskApiCall(_ subscribe: (AnyObserver<Any>), todo: Todo) -> HTTPResult {
@@ -225,21 +313,31 @@ class HttpRequestHandler {
         }
     }
     
-    class func deleteTask(todo: Todo){
-        let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
-            deleteTaskApiCall(subscribe, todo: todo)
-            return Disposables.create()
-        }
+    class func sendPatchRequest(_ currentTodo: Todo, text: String) {
+        let currentTodoCopy = Todo(title: (currentTodo.title), id: (currentTodo.id), completed: (currentTodo.completed), listId: (currentTodo.listId), revision: (currentTodo.revision))
+        currentTodoCopy.title = text
         
-        _ = httpCallObservable.subscribe(
-            onNext: nil,
-            onError: { error in print(error) },
-            onCompleted: nil,
-            onDisposed: nil
-        )
+        if !Reachability.isConnectedToNetwork(){
+            Global.syncs.insert(Sync(id: Global.lastId, action: Sync.Action.edit, todo: currentTodoCopy, originalTodo: currentTodo))
+            Global.lastId += 1
+        } else {
+            let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
+                patchTaskApiCall(subscribe, currentTodo, currentTodoCopy: currentTodoCopy)
+                return Disposables.create()
+            }
+            
+            _ = httpCallObservable.subscribe(
+                onNext: nil,
+                onError: { error in print(error) },
+                onCompleted: nil,
+                onDisposed: nil
+            )
+            
+        }
     }
     
-    class func patchTaskApiCall(_ currentTodo: Todo, currentTodoCopy: Todo){
+    
+    class func patchTaskApiCall(_ subscribe: (AnyObserver<Any>), _ currentTodo: Todo, currentTodoCopy: Todo){
         do {
             let jsonEncoder = JSONEncoder()
             let updatedTodoAsData = try jsonEncoder.encode(currentTodoCopy)
@@ -262,8 +360,13 @@ class HttpRequestHandler {
                                 }
                             }
                         }
-                    } else {
-                        print("ERROR: \(String(describing: response.response))")
+                        
+                        let content = response.content
+                        
+                        subscribe.onNext(content as Any)
+                        subscribe.onCompleted()
+                    } else if let error = response.error{
+                        subscribe.onError(error)
                     }
                 }
             })
@@ -273,32 +376,9 @@ class HttpRequestHandler {
         }
     }
     
-    class func sendPatchRequest(_ currentTodo: Todo, text: String) {
-        let currentTodoCopy = Todo(title: (currentTodo.title), id: (currentTodo.id), completed: (currentTodo.completed), listId: (currentTodo.listId), revision: (currentTodo.revision))
-        currentTodoCopy.title = text
-        
-        if !Reachability.isConnectedToNetwork(){
-            Global.syncs.insert(Sync(id: Global.lastId, action: Sync.Action.edit, todo: currentTodoCopy, originalTodo: currentTodo))
-            Global.lastId += 1
-        } else {
-            let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
-                patchTaskApiCall(currentTodo, currentTodoCopy: currentTodoCopy)
-                return Disposables.create()
-            }
-            
-            _ = httpCallObservable.subscribe(
-                onNext: nil,
-                onError: { error in print(error) },
-                onCompleted: nil,
-                onDisposed: nil
-            )
-            
-        }
-    }
-    
-    class func makeRequestReactive<T>(_ closure: @escaping @autoclosure () -> T) {
+    class func syncEdit(_ sync: Sync){
         let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
-            let result: T = closure()
+            synchronizedEdit(subscribe, sync)
             return Disposables.create()
         }
         
@@ -310,46 +390,48 @@ class HttpRequestHandler {
         )
     }
     
-    class func syncEdit(_ sync: Sync){
-        do {
-            //            try makeRequestReactive(synchronizedEdit(sync))
-        } catch {
-            print("")
-        }
-    }
-    
-    class func synchronizedEdit(_ sync: Sync) throws {
+    class func synchronizedEdit(_ subscribe: (AnyObserver<Any>), _ sync: Sync) {
         let jsonEncoder = JSONEncoder()
-        let updatedTodoAsData = try jsonEncoder.encode(sync.todo)
+        var updatedTodoAsData = Data()
+        do {
+            updatedTodoAsData = try jsonEncoder.encode(sync.todo)
+        } catch {
+            subscribe.onError(error)
+            return
+        }
+        
         let parameters = ["revision": sync.todo!.revision, "list_id": sync.todo!.listId]
         let urlForSingleTask = "\(tasksApiUrl)/\(String(describing: sync.todo!.id))"
         
-        let response = Just.patch(urlForSingleTask, params: parameters, headers: headers, requestBody: updatedTodoAsData)
-        if let statusCode = response.statusCode, let todoFromApi = response.content {
-            if statusCode == 200 {
-                let todoJson = String(decoding:  todoFromApi, as: UTF8.self)
-                var originalTodo = sync.originalTodo
-                if let updatedTodo = Todo(JSONString: todoJson) {
-                    if let originalTodoIndex = Global.realmTodos.firstIndex(of: originalTodo!){
-                        try! Global.realm!.write {
-                            originalTodo = updatedTodo
-                            Global.realmTodos[originalTodoIndex] = updatedTodo
+        Just.patch(urlForSingleTask, params: parameters, headers: headers, requestBody: updatedTodoAsData, asyncCompletionHandler: { (response: HTTPResult) in
+            if let statusCode = response.statusCode, let todoFromApi = response.content  {
+                if statusCode == 200 {
+                    let todoJson = String(decoding:  todoFromApi, as: UTF8.self)
+                    var originalTodo = sync.originalTodo
+                    if let updatedTodo = Todo(JSONString: todoJson) {
+                        if let originalTodoIndex = Global.realmTodos.firstIndex(of: originalTodo!){
+                            try! Global.realm!.write {
+                                originalTodo = updatedTodo
+                                Global.realmTodos[originalTodoIndex] = updatedTodo
+                            }
                         }
                     }
+                    
+                    subscribe.onNext(todoFromApi as Any)
+                    subscribe.onCompleted()
+                } else if let error = response.error{
+                    subscribe.onError(error)
                 }
-            } else {
-                print("ERROR: \(String(describing: response.response))")
             }
-        }
+        })
     }
     
-    class func makePostRequest(_ parameters: [String : Int], _ json: [String : Any], _ sync: Sync) {
+    class func makePostRequest(_ subscribe: (AnyObserver<Any>), _ parameters: [String : Int], _ json: [String : Any], _ sync: Sync) {
         let response = Just.post(tasksApiUrl, params: parameters, data: json, headers: headers)
         
         if let statusCode = response.statusCode {
-            if statusCode != 201 {
-                print("Error adding todo \(String(describing: sync.todo)) \(response) \(String(describing: response.error))")
-            } else {
+            if statusCode == 201 {
+                let content = response.content
                 try! Global.realm!.write {
                     Global.realm!.add(sync.todo!, update: true)
                     
@@ -357,6 +439,10 @@ class HttpRequestHandler {
                         Global.realmTodos.append(sync.todo!)
                     }
                 }
+                subscribe.onNext(content as Any)
+                subscribe.onCompleted()
+            } else if let error = response.error{
+                subscribe.onError(error)
             }
         }
     }
