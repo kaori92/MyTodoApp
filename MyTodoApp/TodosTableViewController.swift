@@ -1,11 +1,3 @@
-//
-//  TodosTableViewController.swift
-//  MyTodoApp
-//
-//  Created by Agnieszka Bielatowicz on 19/03/2019.
-//  Copyright © 2019 Agnieszka Bielatowicz. All rights reserved.
-//
-
 import UIKit
 import RealmSwift
 
@@ -119,7 +111,6 @@ class TodosTableViewController: UITableViewController {
         switch(sync.action){
         case Sync.Action.add:
             do {
-                print("sync add")
                 try HttpRequestHandler.synchronizedAdd(sync)
             } catch let error {
                 print(error)
@@ -145,13 +136,13 @@ class TodosTableViewController: UITableViewController {
         }
     }
     
-    func isOnline() -> Bool{
+    func isOnline() -> Bool {
         return Reachability.isConnectedToNetwork()
     }
     
     func getTasksForList(listId: Int){
         if isOnline() {
-            HttpRequestHandler.getTasksForListOnline(listId: listId)
+            HttpRequestHandler.getTasksForList(listId: listId)
             tableView.reloadData()
         }
     }

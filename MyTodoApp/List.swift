@@ -1,19 +1,11 @@
-//
-//  List.swift
-//  MyTodoApp
-//
-//  Created by Agnieszka Bielatowicz on 20/03/2019.
-//  Copyright © 2019 Agnieszka Bielatowicz. All rights reserved.
-//
-
 import Foundation
 import ObjectMapper
 import RealmSwift
 import Realm
 
 class List: Object, Mappable {
-    @objc dynamic var listId: Int
-    @objc dynamic var revision: Int
+    @objc dynamic var listId: Int = 0
+    @objc dynamic var revision: Int = 0
     
     init(listId: Int){
         self.listId = listId
@@ -27,31 +19,19 @@ class List: Object, Mappable {
     }
     
     required init() {
-        self.listId = -1
-        self.revision = -1
-        
         super.init()
     }
     
     required init?(map: Map) {
-        self.listId = -1
-        self.revision = -1
-        
         super.init()
     }
     
     required init(realm: RLMRealm, schema: RLMObjectSchema) {
-        self.listId = -1
-        self.revision = -1
-        
-        super.init()
+        super.init(realm: realm, schema: schema)
     }
     
     required init(value: Any, schema: RLMSchema) {
-        self.listId = -1
-        self.revision = -1
-        
-        super.init()
+        super.init(value: value, schema: schema)
     }
     
     func mapping(map: Map) {

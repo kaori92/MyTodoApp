@@ -1,11 +1,3 @@
-//
-//  TodoTableViewCell.swift
-//  MyTodoApp
-//
-//  Created by Agnieszka Bielatowicz on 26/03/2019.
-//  Copyright © 2019 Agnieszka Bielatowicz. All rights reserved.
-//
-
 import UIKit
 
 class TodoTableViewCell: UITableViewCell {
@@ -26,7 +18,7 @@ class TodoTableViewCell: UITableViewCell {
         }
         
         if let cellIndex = cellIndex {
-            DispatchQueue.main.async {
+            DispatchQueue.main.async() {
                 try! Global.realm!.write {
                     Global.realmTodos[cellIndex].completed = self.checked
                 }

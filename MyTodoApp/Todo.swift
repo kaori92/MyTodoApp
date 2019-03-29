@@ -1,11 +1,3 @@
-//
-//  Todo.swift
-//  MyTodoApp
-//
-//  Created by Agnieszka Bielatowicz on 19/03/2019.
-//  Copyright © 2019 Agnieszka Bielatowicz. All rights reserved.
-//
-
 import Foundation
 import ObjectMapper
 import RealmSwift
@@ -13,11 +5,11 @@ import Realm
 
 final class Todo: Object, Mappable, Codable {
     
-    @objc dynamic var title: String
-    @objc dynamic var id: Int
-    @objc dynamic var completed: Bool
-    @objc dynamic var listId: Int
-    @objc dynamic var revision: Int
+    @objc dynamic var title: String = ""
+    @objc dynamic var id: Int = 0
+    @objc dynamic var completed: Bool = false
+    @objc dynamic var listId: Int = 0
+    @objc dynamic var revision: Int = 0
     
     enum CodingKeys: String, CodingKey {
         case title = "title"
@@ -35,52 +27,28 @@ final class Todo: Object, Mappable, Codable {
         return lhs.id == rhs.id && lhs.title == rhs.title && lhs.listId == rhs.listId && lhs.revision == rhs.revision
     }
     
-    required init?(map: Map) {
-        self.title = ""
-        self.id = -1
-        self.completed = false
-        self.listId = -1
-        self.revision = -1
-        
+    init?(map: Map) {
         super.init()
     }
     
-    required init(title: String, id: Int, completed: Bool, listId: Int, revision: Int) {
+    required init(value: Any, schema: RLMSchema) {
+        super.init(value: value, schema: schema)
+    }
+    
+    required init() {
+        super.init()
+    }
+    
+    required init(realm: RLMRealm, schema: RLMObjectSchema) {
+        super.init(realm: realm, schema: schema)
+    }
+    
+    init(title: String, id: Int, completed: Bool, listId: Int, revision: Int) {
         self.title = title
         self.id = id
         self.completed = completed
         self.listId = listId
         self.revision = revision
-        
-        super.init()
-    }
-    
-    required init(realm: RLMRealm, schema: RLMObjectSchema) {
-        self.title = ""
-        self.id = -1
-        self.completed = false
-        self.listId = -1
-        self.revision = -1
-        
-        super.init(realm: realm, schema: schema)
-    }
-    
-    required init(value: Any, schema: RLMSchema) {
-        self.title = ""
-        self.id = -1
-        self.completed = false
-        self.listId = -1
-        self.revision = -1
-        
-        super.init()
-    }
-    
-    required init() {
-        self.title = ""
-        self.id = -1
-        self.completed = false
-        self.listId = -1
-        self.revision = -1
         
         super.init()
     }

@@ -1,18 +1,9 @@
-//
-//  Reachability.swift
-//  MyTodoApp
-//
-//  Created by Agnieszka Bielatowicz on 21/03/2019.
-//  Copyright © 2019 Agnieszka Bielatowicz. All rights reserved.
-//
-
 import Foundation
 import SystemConfiguration
 
 public class Reachability {
     
     class func isConnectedToNetwork() -> Bool {
-        
         var zeroAddress = sockaddr_in(sin_len: 0, sin_family: 0, sin_port: 0, sin_addr: in_addr(s_addr: 0), sin_zero: (0, 0, 0, 0, 0, 0, 0, 0))
         zeroAddress.sin_len = UInt8(MemoryLayout.size(ofValue: zeroAddress))
         zeroAddress.sin_family = sa_family_t(AF_INET)
@@ -28,7 +19,6 @@ public class Reachability {
             return false
         }
         
-        // Working for Cellular and WIFI
         let isReachable = (flags.rawValue & UInt32(kSCNetworkFlagsReachable)) != 0
         let needsConnection = (flags.rawValue & UInt32(kSCNetworkFlagsConnectionRequired)) != 0
         let ret = (isReachable && !needsConnection)

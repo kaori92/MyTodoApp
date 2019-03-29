@@ -1,13 +1,4 @@
-//
-//  EditTodoViewController.swift
-//  MyTodoApp
-//
-//  Created by Agnieszka Bielatowicz on 20/03/2019.
-//  Copyright © 2019 Agnieszka Bielatowicz. All rights reserved.
-//
-
 import UIKit
-import Alamofire
 
 class EditTodoViewController: UIViewController {
     var currentTodo: Todo?

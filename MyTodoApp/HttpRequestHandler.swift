@@ -1,11 +1,3 @@
-//
-//  HttpRequestHandler.swift
-//  MyTodoApp
-//
-//  Created by Agnieszka Bielatowicz on 25/03/2019.
-//  Copyright © 2019 Agnieszka Bielatowicz. All rights reserved.
-//
-
 import Just
 import UIKit
 import Alamofire
@@ -49,14 +41,16 @@ class HttpRequestHandler {
         let response = Just.delete(urlForSingleTask, params: parameters, headers: deleteHeaders)
         if let statusCode = response.statusCode {
             if statusCode == 204 {
-                DispatchQueue.main.async {
+                DispatchQueue.main.async() {
                     try! Global.realm!.write {
                         Global.realm!.delete(sync.todo!)
                         Global.realmTodos.remove(at: Global.realmTodos.firstIndex(of: sync.todo!)!)
                     }
                 }
-            } else {
-                print("ERROR: \(String(describing: response.response))")
+                
+                subscribe.onCompleted()
+            } else if let error = response.error{
+                subscribe.onError(error)
             }
         }
     }
@@ -76,7 +70,6 @@ class HttpRequestHandler {
                 print(error)
             }
             
-            
             return Disposables.create()
         }
         
@@ -89,11 +82,36 @@ class HttpRequestHandler {
         
     }
     
+    class func makePostRequest(_ subscribe: (AnyObserver<Any>), _ parameters: [String : Int], _ json: [String : Any], _ sync: Sync) {
+        let response = Just.post(tasksApiUrl, params: parameters, data: json, headers: headers)
+        
+        if let statusCode = response.statusCode {
+            if statusCode == 201 {
+                let content = response.content
+                
+                DispatchQueue.main.async() {
+                    try! Global.realm!.write {
+                        Global.realm!.add(sync.todo!, update: true)
+                        
+                        if !Global.realmTodos.contains(sync.todo!){
+                            Global.realmTodos.append(sync.todo!)
+                        }
+                    }
+                }
+                subscribe.onNext(content as Any)
+                subscribe.onCompleted()
+            } else if let error = response.error{
+                subscribe.onError(error)
+            }
+        }
+    }
+    
     class func getListIdIfNoListSaved() -> Int? {
         let getHeaders: HTTPHeaders = [
             "X-Access-Token": accessToken,
             "X-Client-ID": clientId
         ]
+        
         let response = Just.get(listsApiUrl, headers: getHeaders)
         guard let content = response.content  else {return nil }
         do {
@@ -103,7 +121,7 @@ class HttpRequestHandler {
                 let listId = lists[0].listId
                 let list = List(listId: listId)
                 
-                DispatchQueue.main.async {
+                DispatchQueue.main.async() {
                     try! Global.realm!.write {
                         let result = Global.realm!.objects(List.self)
                         Global.realm!.delete(result)
@@ -123,71 +141,11 @@ class HttpRequestHandler {
         return nil
     }
     
-    class func getTasksForListOnline(listId: Int) {
-        let parameters = ["list_id": listId]
-        let response = Just.get(tasksApiUrl, params: parameters, headers: headers)
-        guard let content = response.content  else {return }
-        
-        do {
-            let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
-            if let todosFetched = Mapper<Todo>().mapArray(JSONObject: jsonObject){
-                DispatchQueue.main.async {
-                    try! Global.realm!.write {
-                        for todo in todosFetched {
-                            Global.realm!.add(todo, update: true)
-                            if !Global.realmTodos.contains(where: { (localTodo) -> Bool in
-                                localTodo.title == todo.title && localTodo.listId == todo.listId
-                            }){
-                                Global.realmTodos.append(todo)
-                            }
-                        }
-                    }
-                }
-            }
-            
-        } catch let error as NSError {
-            print(error)
-        }
-    }
-    
-    class func getTasksForListApiCall(_ subscribe: (AnyObserver<Any>), parameters: [String: Int]) -> HTTPResult {
-        return Just.get(tasksApiUrl, params: parameters, headers: headers, asyncCompletionHandler: { (response: HTTPResult) in
-            if response.statusCode == 200 {
-                guard let content = response.content  else {return }
-                DispatchQueue.main.async {
-                    do {
-                        let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
-                        if let todosFetched = Mapper<Todo>().mapArray(JSONObject: jsonObject){
-                            try! Global.realm!.write {
-                                for todo in todosFetched {
-                                    Global.realm!.add(todo, update: true)
-                                    if !Global.realmTodos.contains(todo){
-                                        Global.realmTodos.append(todo)
-                                    }
-                                }
-                            }
-                        }
-                        
-                        subscribe.onNext(content)
-                        subscribe.onCompleted()
-                    } catch let error {
-                        print(error)
-                    }
-                }
-            } else {
-                if let error = response.error{
-                    subscribe.onError(error)
-                }
-                
-            }
-        })
-    }
-    
-    class func getTasksForList(listId: Int){
-        let parameters = ["list_id": listId]
-        
+    class func getTasksForList(listId: Int) {
         let httpCallObservable:Observable<Any> = Observable<Any>.create { subscribe in
-            _ = getTasksForListApiCall(subscribe, parameters: parameters)
+            if let controller = Global.viewController, let listId = controller.getListId(){
+                _ = getTasksForListApiCall(subscribe, listId: listId)
+            }
             
             return Disposables.create()
         }
@@ -198,6 +156,40 @@ class HttpRequestHandler {
             onCompleted: nil,
             onDisposed: nil
         )
+    }
+    
+    class func getTasksForListApiCall( _ subscribe: (AnyObserver<Any>), listId: Int){
+        let parameters = ["list_id": listId]
+        Just.get(tasksApiUrl, params: parameters, headers: headers) {response in
+            guard let content = response.content  else {return }
+            if response.statusCode == 200 {
+                do {
+                    let jsonObject = try JSONSerialization.jsonObject(with: content, options: .mutableContainers)
+                    if let todosFetched = Mapper<Todo>().mapArray(JSONObject: jsonObject){
+                        DispatchQueue.main.async() {
+                            try! Global.realm!.write {
+                                for todo in todosFetched {
+                                    Global.realm!.add(todo, update: true)
+                                    if !Global.realmTodos.contains(where: { (localTodo) -> Bool in
+                                        localTodo.title == todo.title && localTodo.listId == todo.listId
+                                    }){
+                                        Global.realmTodos.append(todo)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    subscribe.onNext(content)
+                    subscribe.onCompleted()
+                    
+                } catch let error as NSError {
+                    print(error)
+                }
+            } else if let error = response.error{
+                subscribe.onError(error)
+            }
+        }
     }
     
     class func addTask(text: String){
@@ -221,7 +213,7 @@ class HttpRequestHandler {
         return Just.post(tasksApiUrl, data: ["list_id": listId, "title": text], headers: headers) { (response: HTTPResult) in
             if let statusCode = response.statusCode, let content = response.content {
                 if statusCode == 201 {
-                    DispatchQueue.main.async {
+                    DispatchQueue.main.async() {
                         let  todoJson = String(decoding:  content, as: UTF8.self)
                         if let todo = Todo(JSONString: todoJson){
                             try! Global.realm!.write {
@@ -255,15 +247,15 @@ class HttpRequestHandler {
         )
     }
     
-    class func deleteTaskApiCall(_ subscribe: (AnyObserver<Any>), todo: Todo) -> HTTPResult {
+    class func deleteTaskApiCall(_ subscribe: (AnyObserver<Any>), todo: Todo){
         let parameters = ["revision": todo.revision]
         let urlForSingleTask = "\(tasksApiUrl)/\(String(describing: todo.id))"
         
-        return Just.delete(urlForSingleTask, params: parameters, headers: deleteHeaders){ (response: HTTPResult) in
+        Just.delete(urlForSingleTask, params: parameters, headers: deleteHeaders){ (response: HTTPResult) in
             
             if let statusCode = response.statusCode {
                 if statusCode == 204 {
-                    DispatchQueue.main.async {
+                    DispatchQueue.main.async() {
                         try! Global.realm!.write {
                             Global.realm!.delete(todo)
                             Global.realmTodos.remove(at: Global.realmTodos.firstIndex(of: todo)!)
@@ -300,10 +292,8 @@ class HttpRequestHandler {
                 onCompleted: nil,
                 onDisposed: nil
             )
-            
         }
     }
-    
     
     class func patchTaskApiCall(_ subscribe: (AnyObserver<Any>), _ currentTodo: Todo, currentTodoCopy: Todo){
         do {
@@ -321,7 +311,7 @@ class HttpRequestHandler {
                         if let updatedTodo = Todo(JSONString: todoJson){
                             var current = currentTodo
                             
-                            DispatchQueue.main.async {
+                            DispatchQueue.main.async() {
                                 if let currentTodoIndex = Global.realmTodos.firstIndex(of: current){
                                     try! Global.realm!.write {
                                         current = updatedTodo
@@ -343,7 +333,7 @@ class HttpRequestHandler {
             })
             
         } catch {
-            print("EncodingError for todo: ", currentTodoCopy)
+            print("EncodingError for todo: ", currentTodoCopy, error)
         }
     }
     
@@ -367,7 +357,7 @@ class HttpRequestHandler {
         do {
             updatedTodoAsData = try jsonEncoder.encode(sync.todo)
         } catch {
-            subscribe.onError(error)
+            print("Encoding error for todo: ", sync.todo as Any, error)
             return
         }
         
@@ -380,7 +370,7 @@ class HttpRequestHandler {
                     let todoJson = String(decoding:  todoFromApi, as: UTF8.self)
                     var originalTodo = sync.originalTodo
                     if let updatedTodo = Todo(JSONString: todoJson) {
-                        DispatchQueue.main.async {
+                        DispatchQueue.main.async() {
                             if let originalTodoIndex = Global.realmTodos.firstIndex(of: originalTodo!){
                                 try! Global.realm!.write {
                                     originalTodo = updatedTodo
@@ -397,30 +387,6 @@ class HttpRequestHandler {
                 }
             }
         })
-    }
-    
-    class func makePostRequest(_ subscribe: (AnyObserver<Any>), _ parameters: [String : Int], _ json: [String : Any], _ sync: Sync) {
-        let response = Just.post(tasksApiUrl, params: parameters, data: json, headers: headers)
-        
-        if let statusCode = response.statusCode {
-            if statusCode == 201 {
-                let content = response.content
-                
-                DispatchQueue.main.async {
-                    try! Global.realm!.write {
-                        Global.realm!.add(sync.todo!, update: true)
-                        
-                        if !Global.realmTodos.contains(sync.todo!){
-                            Global.realmTodos.append(sync.todo!)
-                        }
-                    }
-                }
-                subscribe.onNext(content as Any)
-                subscribe.onCompleted()
-            } else if let error = response.error{
-                subscribe.onError(error)
-            }
-        }
     }
 }
 
