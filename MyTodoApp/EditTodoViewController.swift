@@ -14,6 +14,7 @@ class EditTodoViewController: UIViewController {
     var parameters: [String:Any] = [:]
     var currentTodoCopy: Todo?
     var checked = false
+    @IBOutlet weak var deleteButton: UIButton!
     
     @IBOutlet weak var contentTextField: UITextField!
     
@@ -34,15 +35,19 @@ class EditTodoViewController: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        deleteButton.titleLabel?.numberOfLines = 0
+        deleteButton.titleLabel?.adjustsFontSizeToFitWidth = true
+        deleteButton.titleLabel?.lineBreakMode = NSLineBreakMode.byWordWrapping
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         contentTextField.text = currentTodo?.title
     }
-
+    
     // MARK: - Navigation
-
+    
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
         if let currentTodo = currentTodo, segue.identifier == "saveEditedTodoSegue" && contentTextField.text != currentTodo.title {
             

@@ -1,6 +1,6 @@
-github "Alamofire/Alamofire" "4.8.1"
+github "Alamofire/Alamofire" "4.8.2"
 github "JustHTTP/Just" "0.7.1"
 github "ReactiveX/RxSwift" "4.4.2"
 github "RxSwiftCommunity/RxRealm" "0.7.7"
-github "realm/realm-cocoa" "v3.13.1"
+github "realm/realm-cocoa" "v3.14.0"
 github "tristanhimmelman/ObjectMapper" "3.4.2"

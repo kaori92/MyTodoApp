@@ -23,7 +23,7 @@ class HttpRequestHandler {
     static let deleteHeaders: HTTPHeaders = [
         "X-Access-Token": accessToken,
         "X-Client-ID": clientId,
-        ]
+    ]
     static let tasksApiUrl = "http://a.wunderlist.com/api/v1/tasks"
     static let listsApiUrl = "http://a.wunderlist.com/api/v1/lists"
     
@@ -227,6 +227,7 @@ class HttpRequestHandler {
                             try! Global.realm!.write {
                                 Global.realm!.add(todo, update: true)
                             }
+                            Global.viewController?.tableView.reloadData()
                         }
                         
                         subscribe.onNext(content)
@@ -326,6 +327,7 @@ class HttpRequestHandler {
                                         current = updatedTodo
                                         Global.realmTodos[currentTodoIndex] = updatedTodo
                                     }
+                                    Global.viewController?.tableView.reloadData()
                                 }
                             }
                         }
